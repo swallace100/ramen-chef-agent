@@ -1,0 +1,72 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    base64 (0.3.0)
+    bigdecimal (3.2.3)
+    dotenv (3.1.8)
+    event_stream_parser (1.0.0)
+    faraday (2.13.4)
+      faraday-net_http (>= 2.0, < 3.5)
+      json
+      logger
+    faraday-multipart (1.1.1)
+      multipart-post (~> 2.0)
+    faraday-net_http (3.4.1)
+      net-http (>= 0.5.0)
+    json (2.13.2)
+    logger (1.7.0)
+    multi_json (1.17.0)
+    multipart-post (2.4.1)
+    mustermann (3.0.4)
+      ruby2_keywords (~> 0.0.1)
+    net-http (0.6.0)
+      uri
+    nio4r (2.7.4)
+    oj (3.16.11)
+      bigdecimal (>= 3.0)
+      ostruct (>= 0.2)
+    ostruct (0.6.3)
+    puma (6.6.1)
+      nio4r (~> 2.0)
+    rack (2.2.17)
+    rack-cors (2.0.2)
+      rack (>= 2.0.0)
+    rack-protection (3.2.0)
+      base64 (>= 0.1.0)
+      rack (~> 2.2, >= 2.2.4)
+    ruby-openai (7.4.0)
+      event_stream_parser (>= 0.3.0, < 2.0.0)
+      faraday (>= 1)
+      faraday-multipart (>= 1)
+    ruby2_keywords (0.0.5)
+    sinatra (3.2.0)
+      mustermann (~> 3.0)
+      rack (~> 2.2, >= 2.2.4)
+      rack-protection (= 3.2.0)
+      tilt (~> 2.0)
+    sinatra-contrib (3.2.0)
+      multi_json (>= 0.0.2)
+      mustermann (~> 3.0)
+      rack-protection (= 3.2.0)
+      sinatra (= 3.2.0)
+      tilt (~> 2.0)
+    tilt (2.6.1)
+    uri (1.0.3)
+
+PLATFORMS
+  x64-mingw-ucrt
+
+DEPENDENCIES
+  dotenv (~> 3.1)
+  oj (~> 3.16)
+  puma (~> 6.4)
+  rack-cors (~> 2.0)
+  ruby-openai (~> 7.0)
+  sinatra (~> 3.2)
+  sinatra-contrib (~> 3.2)
+
+RUBY VERSION
+   ruby 3.4.5p51
+
+BUNDLED WITH
+   2.7.2
