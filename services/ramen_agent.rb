@@ -1,27 +1,42 @@
-# services/ramen_agent.rb
-# frozen_string_literal: true
-
 require "openai"
 require "oj"
 require "date"
 require "yaml"
+require "json_schemer"
 
 class RamenAgent
   Schema = {
-    type: "object",
-    properties: {
-      season_context: { type: "string" },
-      style:          { type: "string", description: "Ramen style, e.g., shoyu, shio, miso, tonkotsu, tori-paitan" },
-      broth:          { type: "string", description: "Short broth concept & why it fits the season" },
-      tare:           { type: "string", description: "Season-appropriate tare idea (e.g., light shoyu with yuzu zest)" },
-      noodles:        { type: "string", description: "Noodle thickness/shape & cook tips" },
-      toppings:       { type: "array", items: { type: "string" } },
-      garnish:        { type: "array", items: { type: "string" } },
-      method_steps:   { type: "array", items: { type: "string" } },
-      shopping_list:  { type: "array", items: { type: "string" } },
-      serving_note:   { type: "string" }
+    "type" => "object",
+    "properties" => {
+      "season_context" => {
+        "type" => "object",
+        "properties" => {
+          "date" => { "type" => "string" },          # e.g., "2025-10-11" (ISO date string)
+          "month" => { "type" => "string" },         # returning "10" as a string
+          "location" => { "type" => "string" },
+          "suggested_ingredients" => {
+            "type" => "array",
+            "items" => { "type" => "string" }
+          }
+        },
+        "required" => %w[date month location suggested_ingredients],
+        "additionalProperties" => false
+      },
+
+      "style" =>          { "type" => "string" },
+      "broth" =>          { "type" => "string" },
+      "tare"  =>          { "type" => "string" },
+      "noodles" =>        { "type" => "string" },
+      "toppings" =>       { "type" => "array", "items" => { "type" => "string" } },
+      "garnish" =>        { "type" => "array", "items" => { "type" => "string" } },
+      "method_steps" =>   { "type" => "array", "items" => { "type" => "string" } },
+      "shopping_list" =>  { "type" => "array", "items" => { "type" => "string" } },
+      "serving_note" =>   { "type" => "string" }
     },
-    required: %i[season_context style broth tare noodles toppings garnish method_steps shopping_list serving_note]
+    "required" => %w[
+      season_context style broth tare noodles toppings garnish method_steps shopping_list serving_note
+    ],
+    "additionalProperties" => false
   }
 
   def initialize(
@@ -46,6 +61,10 @@ class RamenAgent
     }
   end
 
+  def schemer
+    @schemer ||= JSONSchemer.schema(Schema)
+  end
+
   def recommend(user_prefs: {})
     ctx = season_context(location: user_prefs[:location] || ENV["DEFAULT_LOCATION"])
     cuisine_lang = user_prefs[:language] || (ENV["DEFAULT_LOCALE"] || "ja-JP")
@@ -53,9 +72,9 @@ class RamenAgent
     sys = <<~SYS
       You are “Seasonal Ramen Chef,” an expert ramen consultant for home cooks.
       Goal: propose a seasonally-appropriate ramen (Japan context), concise but complete.
-      Consider date, month, and location climate generally; prefer produce and garnishes that fit the season.
-      Output MUST be valid JSON matching the provided schema. Keep ingredient names simple in English or romaji if needed.
-      If language is ja-JP, write natural Japanese; else default to concise English.
+      Consider date, month, and location climate; prefer produce/garnishes that fit the season.
+      Output MUST be valid JSON matching the provided schema exactly.
+      If language is ja-JP, write natural Japanese; else concise English.
     SYS
 
     user = <<~USR
@@ -65,7 +84,7 @@ class RamenAgent
       User preferences (optional):
       #{Oj.dump(user_prefs, mode: :compat)}
 
-      Please return JSON with fields:
+      Schema (enforced):
       #{Oj.dump(Schema, mode: :compat)}
     USR
 
@@ -77,27 +96,42 @@ class RamenAgent
           { role: "system", content: sys },
           { role: "user",   content: user }
         ],
-        temperature: 0.8
+        temperature: 0.7
       }
     )
 
     raw = response.dig("choices", 0, "message", "content")
-    Oj.load(raw, mode: :strict)
+    plan = Oj.load(raw, mode: :strict)
+
+    unless schemer.valid?(plan)
+      errors = schemer.validate(plan).to_a
+      if errors.any?
+        friendly = errors.take(3).map do |e|
+          path = (e["data_pointer"] || e["dataPath"] || e["path"] || []).to_s
+          "#{e['type'] || e['keyword']}: at #{path} #{e['schema'] ? "expected #{e['schema']}" : ''}"
+        end
+        raise "Model JSON failed schema:\n - " + friendly.join("\n - ")
+      else
+        raise "Model JSON failed schema (no details)"
+      end
+    end
+
+    plan
   rescue StandardError => e
     {
       "error" => e.message,
       "fallback" => {
-        "season_context" => "Could not reach model. Try again.",
+        "season_context" => season_context,
         "style" => "shio",
-        "broth" => "Light chicken dashi with kombu; easy, clean, and season-neutral.",
-        "tare" => "Light shio tare with a dash of yuzu zest.",
-        "noodles" => "Medium-thin straight noodles, ~1:45–2:00 min.",
+        "broth" => "Light chicken/kombu dashi; season-neutral and clean.",
+        "tare" => "Shio tare with a touch of citrus (yuzu if in season).",
+        "noodles" => "Medium-thin straight; ~1:45–2:00.",
         "toppings" => ["negi", "menma", "chashu (store-bought ok)"],
         "garnish" => ["nori", "yuzu peel"],
         "method_steps" => [
           "Warm dashi; season with shio tare.",
-          "Cook noodles to firmness; drain well.",
-          "Assemble bowl: tare + broth, then noodles, toppings, garnish."
+          "Cook noodles; drain well.",
+          "Assemble bowl: tare+broth, noodles, toppings, garnish."
         ],
         "shopping_list" => ["kombu dashi", "shio tare", "negi", "nori", "menma", "yuzu"],
         "serving_note" => "Keep it light; highlight aromatics."
