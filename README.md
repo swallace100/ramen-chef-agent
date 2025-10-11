@@ -65,6 +65,11 @@ OPENAI_MODEL=gpt-4o-mini
   - Builds season context from today’s date and `DEFAULT_LOCATION`.
   - Prompts the model with a schema and requests `response_format: json_object`.
   - Validates the model JSON with `json_schemer`. If it fails, returns a graceful `fallback`.
+  - The chef bot uses the season, user location, and user requests to make the recipe.
+
+### Screenshot
+
+![Screenshot](./assets/Seasonal_Ramen_Chef.jpg)
 
 ### Schema (short version)
 
